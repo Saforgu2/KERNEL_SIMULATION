@@ -2,10 +2,10 @@
 #include <stdint.h>
 #include <pthread.h>
 
-// Esleitutako azken ID-adierazten du
+/* Esleitutako azken ID-adierazten du */
 extern uint32_t global_id;
 
-// HW-aren configutazioa
+/*  HW-aren configutazioa*/
 typedef struct HWC
 {
     uint8_t cpus, cores, hwthreads;
@@ -22,7 +22,7 @@ typedef struct PCB
     struct PCB *next;
 } PCB;
 
-// ProcessQueue-ren egitura
+/*ProcessQueue-ren egitura*/
 typedef struct ProcessQueue
 {
     PCB *first, *last;
