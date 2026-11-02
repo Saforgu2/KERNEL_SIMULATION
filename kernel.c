@@ -30,35 +30,35 @@ void global_init ()
     pthread_mutex_init (&ct_mutex, NULL);
     pthread_mutex_init (&tg_mutex, NULL);
     pthread_mutex_init (&tsd_mutex, NULL);
-
 }
 
 void HWC_init (HWC *cfg)
 {
+    uint32_t n;
+
     printf("Sartu cpus balioa: ");
     scanf("%d", &n);
-    cfg.cpus= n;
+    cfg->cpus= n;
     
     printf("Sartu cores balioa: ");
     scanf("%u", &n);
-    cfg.cores = n;
+    cfg->cores = n;
 
     printf("Sartu hwthreads balioa: ");
     scanf("%u", &n);
-    cfg.hwthreads = n;
+    cfg->hwthreads = n;
 
     printf("Sartu clock-freq balioa: ");
     scanf("%u", &n);
-    cfg.clock_freq = n;
+    cfg->clock_freq = n;
 
     printf("Sartu timer-freq balioa: ");
     scanf("%u", &n);
-    cfg.timer_freq = n;
+    cfg->timer_freq = n;
 
     printf("Sartu duration balioa: ");
     scanf("%u", &n);
-    cfg.duration = n;
+    cfg->duration = n;
 
-    HWC_ini(&cfg);
     printf("egitura hasieratuta");
 }
