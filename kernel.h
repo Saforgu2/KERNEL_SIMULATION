@@ -4,6 +4,11 @@
 
 /* Esleitutako azken ID-adierazten du */
 extern uint32_t global_id;
+extern uint32_t global_tick;
+extern uint32_t global_time;
+extern pthread_mutex_t ct_mutex;
+extern pthread_mutex_t tg_mutex;
+extern pthread_mutex_t tsd_mutex;
 
 /*  HW-aren configutazioa*/
 typedef struct HWC
@@ -31,4 +36,7 @@ typedef struct ProcessQueue
 } ProcessQueue;
 
 void PQ_init (ProcessQueue *q);
+void HWC_init (HWC *m);
+void global_init ();
+void ProcessGenerator ();
 
