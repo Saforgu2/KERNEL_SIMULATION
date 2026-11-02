@@ -3,6 +3,13 @@
 #include <string.h>
 #include "kernel.h"
 
+uint32_t global_id;
+uint32_t global_tick;
+uint32_t global_time;
+
+pthread_mutex_t ct_mutex;
+pthread_mutex_t tg_mutex;
+pthread_mutex_t tsd_mutex;
 
 void PQ_init (ProcessQueue *q)
 {
