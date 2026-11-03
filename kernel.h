@@ -5,7 +5,9 @@
 /* Esleitutako azken ID-adierazten du */
 extern uint32_t global_id;
 extern uint32_t global_time;
+extern uint32_t global_tick;
 extern uint32_t ct_end;
+extern uint32_t timer_n;
 extern pthread_mutex_t ct_mutex;
 extern pthread_mutex_t tg_mutex;
 extern pthread_mutex_t tsd_mutex;
