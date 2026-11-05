@@ -103,7 +103,7 @@ void *clock_run (void *arg)
     return NULL;
 }
 
-void *timer_run (void *arg)
+void *timer_run (void *arg) //numero de ciclos/ticks= timerfreq 5--> 1ciclo cada 4ticks
 {
     uint32_t ct_cycles = 0;
 
