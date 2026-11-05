@@ -16,9 +16,11 @@ int main(int argc, char *argv[])
 
     pthread_create(&clock, NULL, clock_run, NULL);
     pthread_create(&timer, NULL, timer_run, NULL);
+    pthread_create(&process_generator, NULL, generate_process, NULL);
 
     pthread_join(clock, NULL);
     pthread_join(timer, NULL);
+    pthread_join(process_generator, NULL);
 
     global_destroy();
     return 0;

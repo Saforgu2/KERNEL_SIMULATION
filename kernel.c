@@ -15,6 +15,8 @@ pthread_mutex_t tsd_mutex;
 
 pthread_cond_t  ct_cond;
 pthread_cond_t  ct_cond2;
+pthread_cond_t  tg_cond;
+pthread_cond_t  tg_cond2;
 
 void PQ_init (ProcessQueue *q)
 {
@@ -71,6 +73,10 @@ void HWC_init ()
     scanf("%u", &n);
     cfg.duration = n;
 
+    printf("Sartu prozesuak sortzeko frekuentzia balioa: ");
+    scanf("%u", &n);
+    cfg.process_freq = n;
+
     printf("egitura hasieratuta\n");
 }
 
@@ -82,6 +88,7 @@ void global_destroy(void)
 
     pthread_cond_destroy(&ct_cond);
     pthread_cond_destroy(&ct_cond2);
+    pthread_cond_destroy(&tg_cond);
 }
 
 void *clock_run (void *arg)
@@ -115,6 +122,11 @@ void *timer_run (void *arg)
 
         if (ct_cycles == cfg.timer_freq) {
             ct_cycles = 0;
+
+            pthread_mutex_lock(&tg_mutex);
+            pthread_cond_signal(&tg_cond);
+            pthread_cond_wait(&tg_cond2, &tg_mutex);
+
             global_tick++;
             printf("Cycle\n");
         }
@@ -127,5 +139,21 @@ void *timer_run (void *arg)
     }
     pthread_mutex_unlock(&ct_mutex);
 
+    return NULL;
+}
+
+
+void *generate_process (void *arg)
+{
+    pthread_mutex_lock(&tg_mutex);
+    while (!ct_end)
+    {
+        pthread_cond_wait(&tg_cond, &tg_mutex);
+        if (global_tick % cfg.process_freq == 0) {
+            printf("Noggers\n");
+            pthread_cond_signal(&tg_cond2);
+        }
+    }
+    pthread_mutex_unlock(&tg_mutex);
     return NULL;
 }
