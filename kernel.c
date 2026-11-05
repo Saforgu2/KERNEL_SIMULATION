@@ -125,7 +125,7 @@ void *timer_run (void *arg) //numero de ciclos/ticks= timerfreq 5--> 1ciclo cada
 
             pthread_mutex_lock(&tg_mutex);
             pthread_cond_signal(&tg_cond);
-            pthread_cond_wait(&tg_cond);
+            pthread_cond_wait(&tg_cond, &tg_mutex);
             pthread_cond_wait(&tg_cond2, &tg_mutex);
 
             global_tick++;
