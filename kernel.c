@@ -1,7 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include "kernel.h"
+
+uint8_t  first_process;
 
 uint32_t global_id;
 uint32_t global_time;
@@ -10,7 +13,6 @@ uint32_t ct_end;
 uint32_t ct_done;
 uint32_t tg_done;
 uint32_t tsd_done;
-
 
 pthread_mutex_t ct_mutex;
 pthread_mutex_t tg_mutex;
@@ -35,6 +37,8 @@ void PQ_init (ProcessQueue *q)
 
 void global_init ()
 {
+    first_process = 1;
+
     global_id = 0;
     global_time = 0;
     global_tick = 0;
@@ -55,6 +59,7 @@ void global_init ()
     pthread_cond_init  (&tsd_cond, NULL);
     pthread_cond_init  (&tsd_cond2, NULL);
 
+    srand(time(NULL));
 }
 
 void HWC_init ()
@@ -113,12 +118,12 @@ void *clock_run (void *arg)
     while (!ct_end)
     {
         while(ct_done < cfg.clock_freq) pthread_cond_wait(&ct_cond, &ct_mutex); // 1 = Hz
-        printf("Tick clock\n");
+        //printf("Tick clock\n");
         ct_done = 0;
         global_time++;
         if (global_time >= cfg.duration) {
             ct_end = 1;
-            printf("clock\n");
+            //printf("clock\n");
 
             pthread_cond_signal(&tg_cond);
             pthread_cond_signal(&tsd_cond);   
@@ -160,7 +165,7 @@ void *timer_run (void *arg) //numero de ciclos/ticks= timerfreq 5--> 1ciclo cada
             pthread_mutex_unlock(&tsd_mutex);
 
             global_tick++;
-            printf("Cycle\n");
+            //printf("Cycle\n");
         }
 
         if (ct_done >= cfg.clock_freq) {
@@ -184,12 +189,22 @@ void *generate_process (void *arg)
             pthread_cond_wait(&tg_cond, &tg_mutex);
 
         if (!ct_end) {
-            printf("noggers\n");
+            PCB *pcb = create_pcb();
+
+            printf("------------------------------------\n");
+            printf("PCB id: %u\n",       pcb->id);
+            printf("PCB life_time: %u\n", pcb->life_time);
+            printf("------------------------------------\n");
+
+            add_process_to_queue(pcb);
+
             tg_done = 0;
             pthread_cond_signal(&tg_cond2);
         }
     }
     pthread_mutex_unlock(&tg_mutex);
+    print_pq();
+    free_pq();
     return NULL;
 }
 
@@ -201,11 +216,71 @@ void *scheduler_run(void *arg)
             pthread_cond_wait(&tsd_cond, &tsd_mutex);
         
         if(!ct_end){
-            printf("scheduler:  %u\n", global_tick);
+            //printf("scheduler:  %u\n", global_tick);
             tsd_done = 0;
             pthread_cond_signal(&tsd_cond2);
         }
     }
     pthread_mutex_unlock(&tsd_mutex);
     return NULL;
+}
+
+PCB *create_pcb ()
+{
+    PCB *pcb = malloc(sizeof(PCB));
+    uint32_t ran_dur = rand() % cfg.duration;
+
+    pcb->id        = global_id;
+    pcb->life_time = ran_dur;
+    pcb->next      = NULL;
+
+    global_id++;
+
+    return pcb;
+}
+
+void add_process_to_queue (PCB *pcb)
+{
+    if (first_process) {
+        pq.first = pcb;
+        pq.last  = pcb;
+        
+        first_process = 0;
+    }
+    else {
+        pcb->next = pq.last;
+        pq.last   = pcb;
+    }
+
+    pq.size++;
+}
+
+void print_pq () 
+{
+    if (pq.size >= 1)
+    {
+        PCB *current = pq.last;
+        while (current)
+        {
+            printf("PCB id: %u\n",       current->id);
+            printf("PCB life_time: %u\n", current->life_time);
+            printf("------------------------------------\n");
+            
+            current = current->next;
+        }
+    }
+}
+
+void free_pq ()
+{
+    PCB *current = pq.last, *next;
+    while (current)
+    {
+        next = current->next;
+        free(current);
+
+        current = next;
+    }
+    pq.last = pq.first = NULL;
+    pq.size = 0;
 }

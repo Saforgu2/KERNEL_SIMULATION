@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <pthread.h>
+#include <time.h>
 #include "kernel.h"
 
 HWC cfg;

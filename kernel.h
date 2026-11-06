@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <pthread.h>
+#include <time.h>
+
+extern uint8_t  first_process;
 
 /* Esleitutako azken ID-adierazten du */
 extern uint32_t global_id;
@@ -10,7 +13,6 @@ extern uint32_t ct_end;
 extern uint32_t ct_done;
 extern uint32_t tg_done;
 extern uint32_t tsd_done;
-
 
 extern pthread_mutex_t ct_mutex;
 extern pthread_mutex_t tg_mutex;
@@ -57,6 +59,10 @@ void ProcessGenerator ();
 void global_destroy ();
 void *clock_run (void *arg);
 void *timer_run (void *arg);
-void *generate_process(void *arg);
-void *scheduler_run(void *arg);
+void *generate_process (void *arg);
+void *scheduler_run (void *arg);
+void add_process_to_queue (PCB *pcb);
+void print_pq ();
+void free_pq ();
 
+PCB *create_pcb ();
