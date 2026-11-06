@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
     pthread_join(clock, NULL);
     pthread_join(timer, NULL);
     pthread_join(process_generator, NULL);
-    pathread_join(sched_disp);
+    pthread_join(sched_disp, NULL);
 
     global_destroy();
     return 0;

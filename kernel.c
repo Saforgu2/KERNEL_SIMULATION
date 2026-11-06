@@ -8,6 +8,9 @@ uint32_t global_time;
 uint32_t global_tick;
 uint32_t ct_end;
 uint32_t ct_done;
+uint32_t tg_done;
+uint32_t tsd_done;
+
 
 pthread_mutex_t ct_mutex;
 pthread_mutex_t tg_mutex;
@@ -17,6 +20,8 @@ pthread_cond_t  ct_cond;
 pthread_cond_t  ct_cond2;
 pthread_cond_t  tg_cond;
 pthread_cond_t  tg_cond2;
+pthread_cond_t  tsd_cond;
+pthread_cond_t  tsd_cond2;
 
 void PQ_init (ProcessQueue *q)
 {
@@ -36,6 +41,8 @@ void global_init ()
     
     ct_end = 0;
     ct_done = 0;
+    tg_done = 0;
+    tsd_done =0;
 
     pthread_mutex_init (&ct_mutex, NULL);
     pthread_mutex_init (&tg_mutex, NULL);
@@ -43,6 +50,11 @@ void global_init ()
     
     pthread_cond_init  (&ct_cond, NULL);
     pthread_cond_init  (&ct_cond2, NULL);
+    pthread_cond_init  (&tg_cond, NULL);
+    pthread_cond_init  (&tg_cond2, NULL);
+    pthread_cond_init  (&tsd_cond, NULL);
+    pthread_cond_init  (&tsd_cond2, NULL);
+
 }
 
 void HWC_init ()
@@ -89,6 +101,10 @@ void global_destroy(void)
     pthread_cond_destroy(&ct_cond);
     pthread_cond_destroy(&ct_cond2);
     pthread_cond_destroy(&tg_cond);
+    pthread_cond_destroy(&tg_cond);
+    pthread_cond_destroy(&tg_cond2);
+    pthread_cond_destroy(&tsd_cond);
+    pthread_cond_destroy(&tsd_cond2);
 }
 
 void *clock_run (void *arg)
@@ -102,6 +118,10 @@ void *clock_run (void *arg)
         global_time++;
         if (global_time >= cfg.duration) {
             ct_end = 1;
+            printf("clock\n");
+
+            pthread_cond_signal(&tg_cond);
+            pthread_cond_signal(&tsd_cond);   
         }
         pthread_cond_broadcast(&ct_cond2);
     }
@@ -123,10 +143,21 @@ void *timer_run (void *arg) //numero de ciclos/ticks= timerfreq 5--> 1ciclo cada
         if (ct_cycles == cfg.timer_freq) {
             ct_cycles = 0;
 
-            pthread_mutex_lock(&tg_mutex);
-            pthread_cond_signal(&tg_cond);
-            pthread_cond_wait(&tg_cond, &tg_mutex);
-            pthread_cond_wait(&tg_cond2, &tg_mutex);
+            if (global_tick % cfg.process_freq == 0) {
+                pthread_mutex_lock(&tg_mutex);
+                tg_done = 1;
+                pthread_cond_signal(&tg_cond);
+                while (tg_done)
+                    pthread_cond_wait(&tg_cond2, &tg_mutex);
+                pthread_mutex_unlock(&tg_mutex);
+            }
+
+            pthread_mutex_lock(&tsd_mutex);
+            tsd_done = 1;
+            pthread_cond_signal(&tsd_cond);
+            while (tsd_done)
+                pthread_cond_wait(&tsd_cond2, &tsd_mutex);
+            pthread_mutex_unlock(&tsd_mutex);
 
             global_tick++;
             printf("Cycle\n");
@@ -149,25 +180,32 @@ void *generate_process (void *arg)
     pthread_mutex_lock(&tg_mutex);
     while (!ct_end)
     {
-        pthread_cond_wait(&tg_cond, &tg_mutex);
-        if (global_tick % cfg.process_freq == 0) {
-            printf("Noggers\n");
+        while (!tg_done && !ct_end)
+            pthread_cond_wait(&tg_cond, &tg_mutex);
+
+        if (!ct_end) {
+            printf("noggers\n");
+            tg_done = 0;
             pthread_cond_signal(&tg_cond2);
         }
     }
     pthread_mutex_unlock(&tg_mutex);
     return NULL;
 }
+
 void *scheduler_run(void *arg)
 {
-    ftick=0;
-    pthread_mutex_lock(&tg_mutex);
+    pthread_mutex_lock(&tsd_mutex);
     while (!ct_end) {
-        while (ftick == global_tick && !ct_end)
-            pthread_cond_wait(&tg_cond, &tg_mutex);
-        ftick = global_tick;
-        printf("scheduler:  %u\n", ftick);
+        while (!tsd_done && !ct_end)
+            pthread_cond_wait(&tsd_cond, &tsd_mutex);
+        
+        if(!ct_end){
+            printf("scheduler:  %u\n", global_tick);
+            tsd_done = 0;
+            pthread_cond_signal(&tsd_cond2);
+        }
     }
-    pthread_mutex_unlock(&tg_mutex);
+    pthread_mutex_unlock(&tsd_mutex);
     return NULL;
 }

@@ -8,6 +8,9 @@ extern uint32_t global_time;
 extern uint32_t global_tick;
 extern uint32_t ct_end;
 extern uint32_t ct_done;
+extern uint32_t tg_done;
+extern uint32_t tsd_done;
+
 
 extern pthread_mutex_t ct_mutex;
 extern pthread_mutex_t tg_mutex;
