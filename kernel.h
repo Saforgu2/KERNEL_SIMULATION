@@ -40,6 +40,7 @@ typedef struct PCB
     uint32_t id;
     uint32_t life_time;
     struct PCB *next;
+    struct PCB *behind;
 } PCB;
 
 /*ProcessQueue-ren egitura*/

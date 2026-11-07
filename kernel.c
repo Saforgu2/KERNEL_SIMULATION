@@ -233,6 +233,7 @@ PCB *create_pcb ()
     pcb->id        = global_id;
     pcb->life_time = ran_dur;
     pcb->next      = NULL;
+    pcb->behind    = NULL;
 
     global_id++;
 
@@ -248,8 +249,9 @@ void add_process_to_queue (PCB *pcb)
         first_process = 0;
     }
     else {
-        pcb->next = pq.last;
-        pq.last   = pcb;
+        pcb->next         = pq.last;
+        pcb->next->behind = pcb;
+        pq.last           = pcb;
     }
 
     pq.size++;
