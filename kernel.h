@@ -83,5 +83,8 @@ void *scheduler_run (void *arg);
 void add_process_to_queue (PCB *pcb);
 void print_pq ();
 void free_pq ();
+void free_cpus ();
+void cpus_alloc ();
+void print_cpus ();
 
 PCB *create_pcb ();

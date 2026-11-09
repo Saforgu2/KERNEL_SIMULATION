@@ -4,7 +4,7 @@
 #include <time.h>
 #include "kernel.h"
 
-uint8_t  first_process;
+//uint8_t  first_process;
 
 uint32_t global_id;
 uint32_t global_time;
@@ -37,7 +37,7 @@ void PQ_init (ProcessQueue *q)
 
 void global_init ()
 {
-    first_process = 1;
+    //first_process = 1;
 
     global_id = 0;
     global_time = 0;
@@ -94,18 +94,7 @@ void HWC_init ()
     scanf("%u", &n);
     cfg.process_freq = n;
 
-    cfg.cpus = malloc(cfg.n_cpus * sizeof(CPU));
-    uint8_t i, j;
-    for (i = 0; i < cfg.n_cpus; i++)
-    {
-        cfg.cpus[i].threads = malloc(cfg.cores * cfg.hwthreads * sizeof(TCB));
-        cfg.cpus[i].id = i;
-        for (j = 0; j < (cfg.cores * cfg.hwthreads); j++)
-        {
-            cfg.cpus[i].threads[j].id  = j;
-            cfg.cpus[i].threads[j].pcb = NULL;
-        }
-    }
+    cpus_alloc();
 
     printf("egitura hasieratuta\n");
 }
@@ -124,21 +113,9 @@ void global_destroy(void)
     pthread_cond_destroy(&tsd_cond);
     pthread_cond_destroy(&tsd_cond2);
 
-    uint8_t i, j;
-    for (i = 0; i < cfg.n_cpus; i++)
-    {
-        printf("Cpua: %u\n", i);
-        for (j = 0; j < (cfg.cores * cfg.hwthreads); j++)
-        {
-            printf("Hariare id: %u\n", cfg.cpus[i].threads[j].id);
-        }
-    }
+    print_cpus();
 
-    for (i = 0; i < (cfg.cores * cfg.hwthreads); i++)
-    {
-        free(cfg.cpus[i].threads);
-    }
-    free(cfg.cpus);
+    free_cpus();
 }
 
 void *clock_run (void *arg)
@@ -271,11 +248,11 @@ PCB *create_pcb ()
 
 void add_process_to_queue (PCB *pcb)
 {
-    if (first_process) {
+    if (pq.first == NULL) {
         pq.first = pcb;
         pq.last  = pcb;
         
-        first_process = 0;
+        //first_process = 0;
     }
     else {
         pcb->next         = pq.last;
@@ -285,7 +262,21 @@ void add_process_to_queue (PCB *pcb)
 
     pq.size++;
 }
-
+void cpus_alloc ()
+{
+    cfg.cpus = malloc(cfg.n_cpus * sizeof(CPU));
+    uint8_t i, j;
+    for (i = 0; i < cfg.n_cpus; i++)
+    {
+        cfg.cpus[i].threads = malloc(cfg.cores * cfg.hwthreads * sizeof(TCB));
+        cfg.cpus[i].id = i;
+        for (j = 0; j < (cfg.cores * cfg.hwthreads); j++)
+        {
+            cfg.cpus[i].threads[j].id  = j;
+            cfg.cpus[i].threads[j].pcb = NULL;
+        }
+    }
+}
 void print_pq () 
 {
     if (pq.size >= 1)
@@ -315,4 +306,25 @@ void free_pq ()
     }
     pq.last = pq.first = NULL;
     pq.size = 0;
+}
+void print_cpus ()
+{
+    uint8_t i, j;
+    for (i = 0; i < cfg.n_cpus; i++)
+    {
+        printf("Cpua: %u\n", i);
+        for (j = 0; j < (cfg.cores * cfg.hwthreads); j++)
+        {
+            printf("Hariare id: %u\n", cfg.cpus[i].threads[j].id);
+        }
+    }
+}
+void free_cpus ()
+{   
+    uint8_t i;
+    for(i=0; i< cfg.n_cpus; i++)
+    {
+        free(cfg.cpus[i].threads);
+    }
+    free(cfg.cpus);
 }
