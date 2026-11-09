@@ -68,7 +68,7 @@ void HWC_init ()
 
     printf("Sartu cpus balioa: ");
     scanf("%u", &n);
-    cfg.cpus= n;
+    cfg.n_cpus= n;
     
     printf("Sartu cores balioa: ");
     scanf("%u", &n);
@@ -94,6 +94,19 @@ void HWC_init ()
     scanf("%u", &n);
     cfg.process_freq = n;
 
+    cfg.cpus = malloc(cfg.n_cpus * sizeof(CPU));
+    uint8_t i, j;
+    for (i = 0; i < cfg.n_cpus; i++)
+    {
+        cfg.cpus[i].threads = malloc(cfg.cores * cfg.hwthreads * sizeof(TCB));
+        cfg.cpus[i].id = i;
+        for (j = 0; j < (cfg.cores * cfg.hwthreads); j++)
+        {
+            cfg.cpus[i].threads[j].id  = j;
+            cfg.cpus[i].threads[j].pcb = NULL;
+        }
+    }
+
     printf("egitura hasieratuta\n");
 }
 
@@ -110,6 +123,22 @@ void global_destroy(void)
     pthread_cond_destroy(&tg_cond2);
     pthread_cond_destroy(&tsd_cond);
     pthread_cond_destroy(&tsd_cond2);
+
+    uint8_t i, j;
+    for (i = 0; i < cfg.n_cpus; i++)
+    {
+        printf("Cpua: %u\n", i);
+        for (j = 0; j < (cfg.cores * cfg.hwthreads); j++)
+        {
+            printf("Hariare id: %u\n", cfg.cpus[i].threads[j].id);
+        }
+    }
+
+    for (i = 0; i < (cfg.cores * cfg.hwthreads); i++)
+    {
+        free(cfg.cpus[i].threads);
+    }
+    free(cfg.cpus);
 }
 
 void *clock_run (void *arg)
@@ -190,12 +219,12 @@ void *generate_process (void *arg)
 
         if (!ct_end) {
             PCB *pcb = create_pcb();
-
+            /*
             printf("------------------------------------\n");
             printf("PCB id: %u\n",       pcb->id);
             printf("PCB life_time: %u\n", pcb->life_time);
             printf("------------------------------------\n");
-
+            */
             add_process_to_queue(pcb);
 
             tg_done = 0;
@@ -264,10 +293,11 @@ void print_pq ()
         PCB *current = pq.last;
         while (current)
         {
+            /*
             printf("PCB id: %u\n",       current->id);
             printf("PCB life_time: %u\n", current->life_time);
             printf("------------------------------------\n");
-            
+            */
             current = current->next;
         }
     }

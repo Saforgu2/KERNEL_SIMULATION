@@ -3,6 +3,8 @@
 #include <pthread.h>
 #include <time.h>
 
+#define QUANTUM 5
+
 extern uint8_t  first_process;
 
 /* Esleitutako azken ID-adierazten du */
@@ -22,10 +24,35 @@ extern pthread_cond_t  ct_cond2;
 extern pthread_cond_t  tg_cond;
 extern pthread_cond_t  tg_cond2;
 
+// PCB-aren egitura
+typedef struct PCB
+{
+    uint8_t state;
+    uint32_t id;
+    uint32_t life_time;
+    struct PCB *next;
+    struct PCB *behind;
+    
+} PCB;
+
+typedef struct TCB
+{
+    uint32_t id;
+    PCB *pcb;
+} TCB;
+
+typedef struct CPU
+{
+    uint32_t id;
+    TCB *threads;
+} CPU;
+
 /*  HW-aren configutazioa*/
 typedef struct HWC
 {
-    uint8_t cpus, cores, hwthreads;
+    CPU *cpus;
+    uint8_t  n_cpus;
+    uint8_t  cores, hwthreads;
     uint32_t clock_freq;     /*Hz-etan*/
     uint32_t timer_freq;    /*  Tick arteko erloju-zikloak*/
     uint32_t duration;      /*  Simulazioaren iraupena*/
@@ -33,15 +60,6 @@ typedef struct HWC
 } HWC;
 
 extern HWC cfg;
-
-// PCB-aren egitura
-typedef struct PCB
-{
-    uint32_t id;
-    uint32_t life_time;
-    struct PCB *next;
-    struct PCB *behind;
-} PCB;
 
 /*ProcessQueue-ren egitura*/
 typedef struct ProcessQueue
