@@ -6,13 +6,15 @@
 
 HWC cfg;
 ProcessQueue pq;
+ProcessQueueSpecial pqs;
+
 
 int main(int argc, char *argv[])
 {
     pthread_t clock, timer, process_generator, sched_disp;
 
     HWC_init();
-    PQ_init(&pq);
+    PQ_init();
     global_init();
 
     pthread_create(&clock, NULL, clock_run, NULL);

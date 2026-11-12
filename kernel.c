@@ -25,15 +25,19 @@ pthread_cond_t  tg_cond2;
 pthread_cond_t  tsd_cond;
 pthread_cond_t  tsd_cond2;
 
-void PQ_init (ProcessQueue *q)
+void PQ_init ()
 {
-    q->first = NULL;
-    q->last = NULL;
-    q->size = 0;
+    pq.first = NULL;
+    pq.last = NULL;
+    pq.size = 0;
 
-    pthread_mutex_init(&q->mutex, NULL);
+    pqs.first = NULL;
+    pqs.last = NULL;
+    pqs.size = 0;
+
+    pthread_mutex_init(&pq.mutex, NULL);
+    pthread_mutex_init(&pqs.mutex, NULL);
 }
-
 
 void global_init ()
 {
@@ -107,7 +111,6 @@ void global_destroy(void)
 
     pthread_cond_destroy(&ct_cond);
     pthread_cond_destroy(&ct_cond2);
-    pthread_cond_destroy(&tg_cond);
     pthread_cond_destroy(&tg_cond);
     pthread_cond_destroy(&tg_cond2);
     pthread_cond_destroy(&tsd_cond);
@@ -185,7 +188,6 @@ void *timer_run (void *arg) //numero de ciclos/ticks= timerfreq 5--> 1ciclo cada
     return NULL;
 }
 
-
 void *generate_process (void *arg)
 {
     pthread_mutex_lock(&tg_mutex);
@@ -217,12 +219,14 @@ void *generate_process (void *arg)
 void *scheduler_run(void *arg)
 {
     pthread_mutex_lock(&tsd_mutex);
-    while (!ct_end) {
+    while (!ct_end)
+    {
         while (!tsd_done && !ct_end)
             pthread_cond_wait(&tsd_cond, &tsd_mutex);
         
         if(!ct_end){
             //printf("scheduler:  %u\n", global_tick);
+
             tsd_done = 0;
             pthread_cond_signal(&tsd_cond2);
         }
@@ -234,8 +238,10 @@ void *scheduler_run(void *arg)
 PCB *create_pcb ()
 {
     PCB *pcb = malloc(sizeof(PCB));
+    uint8_t nice = rand() % sizeof(uint8_t);
     uint32_t ran_dur = rand() % cfg.duration;
 
+    pcb->nice      = nice;
     pcb->id        = global_id;
     pcb->life_time = ran_dur;
     pcb->next      = NULL;
@@ -260,8 +266,10 @@ void add_process_to_queue (PCB *pcb)
         pq.last           = pcb;
     }
 
+    pcb->state = READY;
     pq.size++;
 }
+
 void cpus_alloc ()
 {
     cfg.cpus = malloc(cfg.n_cpus * sizeof(CPU));
@@ -269,6 +277,7 @@ void cpus_alloc ()
     for (i = 0; i < cfg.n_cpus; i++)
     {
         cfg.cpus[i].threads = malloc(cfg.cores * cfg.hwthreads * sizeof(TCB));
+        cfg.cpus[i].unused_threads = (cfg.cores * cfg.hwthreads);
         cfg.cpus[i].id = i;
         for (j = 0; j < (cfg.cores * cfg.hwthreads); j++)
         {
@@ -277,6 +286,7 @@ void cpus_alloc ()
         }
     }
 }
+
 void print_pq () 
 {
     if (pq.size >= 1)
@@ -307,6 +317,7 @@ void free_pq ()
     pq.last = pq.first = NULL;
     pq.size = 0;
 }
+
 void print_cpus ()
 {
     uint8_t i, j;
@@ -319,6 +330,7 @@ void print_cpus ()
         }
     }
 }
+
 void free_cpus ()
 {   
     uint8_t i;

@@ -3,7 +3,11 @@
 #include <pthread.h>
 #include <time.h>
 
-#define QUANTUM 5
+#define READY    0
+#define RUNNING  1
+#define FINISHED 2
+
+#define QUANTUM  10
 
 extern uint8_t  first_process;
 
@@ -28,11 +32,11 @@ extern pthread_cond_t  tg_cond2;
 typedef struct PCB
 {
     uint8_t state;
+    uint8_t nice;
     uint32_t id;
     uint32_t life_time;
     struct PCB *next;
     struct PCB *behind;
-    
 } PCB;
 
 typedef struct TCB
@@ -43,6 +47,7 @@ typedef struct TCB
 
 typedef struct CPU
 {
+    uint8_t  unused_threads;
     uint32_t id;
     TCB *threads;
 } CPU;
@@ -71,7 +76,16 @@ typedef struct ProcessQueue
 
 extern ProcessQueue pq;
 
-void PQ_init (ProcessQueue *q);
+typedef struct ProcessQueueSpecial
+{
+    PCB *first, *last;
+    uint32_t size;
+    pthread_mutex_t mutex;
+} ProcessQueueSpecial;
+
+extern ProcessQueueSpecial pqs;
+
+void PQ_init ();
 void HWC_init ();
 void global_init ();
 void ProcessGenerator ();
