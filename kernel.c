@@ -4,8 +4,6 @@
 #include <time.h>
 #include "kernel.h"
 
-//uint8_t  first_process;
-
 uint32_t global_id;
 uint32_t global_time;
 uint32_t global_tick;
@@ -28,12 +26,16 @@ pthread_cond_t  tsd_cond2;
 void PQ_init ()
 {
     pq.first = NULL;
-    pq.last = NULL;
-    pq.size = 0;
+    pq.last  = NULL;
+    pq.size  = 0;
 
     pqs.first = NULL;
-    pqs.last = NULL;
-    pqs.size = 0;
+    pqs.last  = NULL;
+    pqs.size  = 0;
+
+    fq.first = NULL;
+    fq.last  = NULL;
+    fq.size  = 0;
 
     pthread_mutex_init(&pq.mutex, NULL);
     pthread_mutex_init(&pqs.mutex, NULL);
@@ -41,7 +43,6 @@ void PQ_init ()
 
 void global_init ()
 {
-    //first_process = 1;
 
     global_id = 0;
     global_time = 0;
@@ -118,6 +119,7 @@ void global_destroy(void)
 
     print_cpus();
 
+    free_pq();
     free_cpus();
 }
 
@@ -212,7 +214,6 @@ void *generate_process (void *arg)
     }
     pthread_mutex_unlock(&tg_mutex);
     print_pq();
-    free_pq();
     return NULL;
 }
 
@@ -224,8 +225,46 @@ void *scheduler_run(void *arg)
         while (!tsd_done && !ct_end)
             pthread_cond_wait(&tsd_cond, &tsd_mutex);
         
-        if(!ct_end){
+        if(!ct_end) {
             //printf("scheduler:  %u\n", global_tick);
+            if (pq.size > 0) {
+                uint8_t i = 0, j;
+                uint8_t found = 0;
+                while (!found && i < cfg.n_cpus)
+                {
+                    for (j = 0; i < cfg.threads_per_cpu; j++)
+                    {
+                        if (cfg.cpus[i].threads[j].pcb != NULL) 
+                        {
+                            found = 1;
+                            break;
+                        }
+                    }
+                    if (!found)
+                        i++;
+                }
+                
+                if (found)
+                {
+                    cfg.cpus[i].threads[j].pcb = pq.first;
+                    pq.first->state = RUNNING;
+                    pq.first = pq.first->behind;
+
+                    if (pq.size == 1) {
+                        pq.last  = NULL;
+                    }
+                    else {
+                        pq.first->next = NULL;
+                    }
+                    pq.size--;
+
+                    printf("PCB id: %u\n",       cfg.cpus[i].threads[j].pcb->id);
+                    printf("PCB life_time: %u\n", cfg.cpus[i].threads[j].pcb->life_time);
+                    printf("------------------------------------\n");
+
+                    free(cfg.cpus[i].threads[j].pcb);
+                }
+            }
 
             tsd_done = 0;
             pthread_cond_signal(&tsd_cond2);
@@ -252,34 +291,51 @@ PCB *create_pcb ()
     return pcb;
 }
 
-void add_process_to_queue (PCB *pcb)
+void add_process_to_queue ( PCB *pcb)
 {
-    if (pq.first == NULL) {
-        pq.first = pcb;
-        pq.last  = pcb;
+    if ( pcb->nice < 200)
+    {
+        if (pq.first == NULL) {
         
-        //first_process = 0;
+            pq.first = pcb;
+            pq.last  = pcb;
+        }
+        else {
+            pcb->next         = pq.last;
+            pcb->next->behind = pcb;
+            pq.last           = pcb;
+        }
+        pq.size++;
+    }else{
+            if (pqs.first == NULL) 
+            {
+        
+            pqs.first = pcb;
+            pqs.last  = pcb;
+        }
+        else {
+            pcb->next         = pqs.last;
+            pcb->next->behind = pcb;
+            pqs.last           = pcb;
+        }
+        pqs.size++;
     }
-    else {
-        pcb->next         = pq.last;
-        pcb->next->behind = pcb;
-        pq.last           = pcb;
-    }
-
     pcb->state = READY;
-    pq.size++;
+    
 }
 
 void cpus_alloc ()
+
 {
     cfg.cpus = malloc(cfg.n_cpus * sizeof(CPU));
     uint8_t i, j;
+    uint32_t kop = cfg.cores * cfg.hwthreads;
     for (i = 0; i < cfg.n_cpus; i++)
     {
-        cfg.cpus[i].threads = malloc(cfg.cores * cfg.hwthreads * sizeof(TCB));
-        cfg.cpus[i].unused_threads = (cfg.cores * cfg.hwthreads);
+        cfg.cpus[i].threads = malloc(kop * sizeof(TCB));
+        cfg.threads_per_cpu = kop;
         cfg.cpus[i].id = i;
-        for (j = 0; j < (cfg.cores * cfg.hwthreads); j++)
+        for (j = 0; j < kop; j++)
         {
             cfg.cpus[i].threads[j].id  = j;
             cfg.cpus[i].threads[j].pcb = NULL;
@@ -306,16 +362,18 @@ void print_pq ()
 
 void free_pq ()
 {
-    PCB *current = pq.last, *next;
-    while (current)
-    {
-        next = current->next;
-        free(current);
+    if (pq.size > 0) {
+        PCB *current = pq.last, *next;
+        while (current)
+        {
+            next = current->next;
+            free(current);
 
-        current = next;
+            current = next;
+        }
+        pq.last = pq.first = NULL;
+        pq.size = 0;
     }
-    pq.last = pq.first = NULL;
-    pq.size = 0;
 }
 
 void print_cpus ()

@@ -7,6 +7,7 @@
 HWC cfg;
 ProcessQueue pq;
 ProcessQueueSpecial pqs;
+FinishedQueue fq;
 
 
 int main(int argc, char *argv[])

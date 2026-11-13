@@ -9,16 +9,15 @@
 
 #define QUANTUM  10
 
-extern uint8_t  first_process;
-
 /* Esleitutako azken ID-adierazten du */
-extern uint32_t global_id;
+extern uint32_t global_id; 
 extern uint32_t global_time;
 extern uint32_t global_tick;
 extern uint32_t ct_end;
 extern uint32_t ct_done;
 extern uint32_t tg_done;
 extern uint32_t tsd_done;
+
 
 extern pthread_mutex_t ct_mutex;
 extern pthread_mutex_t tg_mutex;
@@ -47,7 +46,6 @@ typedef struct TCB
 
 typedef struct CPU
 {
-    uint8_t  unused_threads;
     uint32_t id;
     TCB *threads;
 } CPU;
@@ -62,6 +60,7 @@ typedef struct HWC
     uint32_t timer_freq;    /*  Tick arteko erloju-zikloak*/
     uint32_t duration;      /*  Simulazioaren iraupena*/
     uint32_t process_freq;
+    uint8_t threads_per_cpu;
 } HWC;
 
 extern HWC cfg;
@@ -84,6 +83,15 @@ typedef struct ProcessQueueSpecial
 } ProcessQueueSpecial;
 
 extern ProcessQueueSpecial pqs;
+
+typedef struct FinishedQueue
+{
+    PCB *first, *last;
+    uint32_t size;
+    pthread_mutex_t mutex;
+} FinishedQueue;
+
+extern FinishedQueue fq;
 
 void PQ_init ();
 void HWC_init ();
