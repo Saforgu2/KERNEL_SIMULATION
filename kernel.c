@@ -51,11 +51,14 @@ void global_init ()
     ct_end = 0;
     ct_done = 0;
     tg_done = 0;
-    tsd_done =0;
+    tsd_done = 0;
+    threads_done = 0;
+    remaining_threads = 0;
 
     pthread_mutex_init (&ct_mutex, NULL);
     pthread_mutex_init (&tg_mutex, NULL);
     pthread_mutex_init (&tsd_mutex, NULL);
+    pthread_mutex_init (&threads_run_mutex, NULL);
     
     pthread_cond_init  (&ct_cond, NULL);
     pthread_cond_init  (&ct_cond2, NULL);
@@ -63,6 +66,8 @@ void global_init ()
     pthread_cond_init  (&tg_cond2, NULL);
     pthread_cond_init  (&tsd_cond, NULL);
     pthread_cond_init  (&tsd_cond2, NULL);
+    pthread_cond_init  (&thread_run_cond, NULL);
+    pthread_cond_init  (&thread_run_cond2, NULL);
 
     srand(time(NULL));
 }
@@ -109,6 +114,7 @@ void global_destroy(void)
     pthread_mutex_destroy(&ct_mutex);
     pthread_mutex_destroy(&tg_mutex);
     pthread_mutex_destroy(&tsd_mutex);
+    pthread_mutex_destroy(&threads_run_mutex);
 
     pthread_cond_destroy(&ct_cond);
     pthread_cond_destroy(&ct_cond2);
@@ -116,6 +122,8 @@ void global_destroy(void)
     pthread_cond_destroy(&tg_cond2);
     pthread_cond_destroy(&tsd_cond);
     pthread_cond_destroy(&tsd_cond2);
+    pthread_cond_destroy(&thread_run_cond);
+    pthread_cond_destroy(&thread_run_cond2);
 
     print_cpus();
 
@@ -232,9 +240,9 @@ void *scheduler_run(void *arg)
                 uint8_t found = 0;
                 while (!found && i < cfg.n_cpus)
                 {
-                    for (j = 0; i < cfg.threads_per_cpu; j++)
+                    for (j = 0; j < cfg.threads_per_cpu; j++)
                     {
-                        if (cfg.cpus[i].threads[j].pcb != NULL) 
+                        if (cfg.cpus[i].threads[j].t_args.pcb == NULL) 
                         {
                             found = 1;
                             break;
@@ -246,7 +254,7 @@ void *scheduler_run(void *arg)
                 
                 if (found)
                 {
-                    cfg.cpus[i].threads[j].pcb = pq.first;
+                    cfg.cpus[i].threads[j].t_args.pcb = pq.first;
                     pq.first->state = RUNNING;
                     pq.first = pq.first->behind;
 
@@ -258,11 +266,13 @@ void *scheduler_run(void *arg)
                     }
                     pq.size--;
 
-                    printf("PCB id: %u\n",       cfg.cpus[i].threads[j].pcb->id);
-                    printf("PCB life_time: %u\n", cfg.cpus[i].threads[j].pcb->life_time);
+                    printf("PCB id: %u\n",       cfg.cpus[i].threads[j].t_args.pcb->id);
+                    printf("PCB life_time: %u\n", cfg.cpus[i].threads[j].t_args.pcb->life_time);
                     printf("------------------------------------\n");
 
                     free(cfg.cpus[i].threads[j].pcb);
+
+                    cfg.cpus[i].threads[j].pcb = NULL;
                 }
             }
 
@@ -337,8 +347,9 @@ void cpus_alloc ()
         cfg.cpus[i].id = i;
         for (j = 0; j < kop; j++)
         {
-            cfg.cpus[i].threads[j].id  = j;
-            cfg.cpus[i].threads[j].pcb = NULL;
+            cfg.cpus[i].threads[j].id            = j;
+            cfg.cpus[i].threads[j].t_args        = malloc(sizeof(ThreadArgs));
+            cfg.cpus[i].threads[j].t_args.pcb    = NULL;
         }
     }
 }
@@ -397,4 +408,12 @@ void free_cpus ()
         free(cfg.cpus[i].threads);
     }
     free(cfg.cpus);
+}
+
+void process_run (void *args)
+{
+    while (!ct_end)
+    {
+
+    }
 }
