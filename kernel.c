@@ -59,6 +59,8 @@ void global_init ()
     pthread_mutex_init (&tg_mutex, NULL);
     pthread_mutex_init (&tsd_mutex, NULL);
     pthread_mutex_init (&threads_run_mutex, NULL);
+    pthread_mutex_init (&thread_in_use_mutex, NULL);
+    pthread_mutex_init (&thread_remainig_mutex, NULL);
     
     pthread_cond_init  (&ct_cond, NULL);
     pthread_cond_init  (&ct_cond2, NULL);
@@ -115,6 +117,8 @@ void global_destroy(void)
     pthread_mutex_destroy(&tg_mutex);
     pthread_mutex_destroy(&tsd_mutex);
     pthread_mutex_destroy(&threads_run_mutex);
+    pthread_mutex_destroy(&thread_in_use_mutex);
+    pthread_mutex_destroy(&thread_remainig_mutex);
 
     pthread_cond_destroy(&ct_cond);
     pthread_cond_destroy(&ct_cond2);
@@ -124,6 +128,7 @@ void global_destroy(void)
     pthread_cond_destroy(&tsd_cond2);
     pthread_cond_destroy(&thread_run_cond);
     pthread_cond_destroy(&thread_run_cond2);
+    
 
     print_cpus();
 
@@ -187,6 +192,17 @@ void *timer_run (void *arg) //numero de ciclos/ticks= timerfreq 5--> 1ciclo cada
             //printf("Cycle\n");
         }
 
+        if (cfg.threads_in_use > 0) {
+            pthread_mutex_lock(&threads_run_mutex);
+            threads_done = 1;
+            pthread_cond_broadcast(&thread_run_cond);
+            while (remaining_threads < cfg.threads_in_use)
+                pthread_cond_wait(&thread_run_cond2, &threads_run_mutex);
+            threads_done = 0;
+            pthread_cond_signal(&thread_run_cond);
+            pthread_mutex_unlock(&threads_run_mutex);
+        }
+
         if (ct_done >= cfg.clock_freq) {
             pthread_cond_signal(&ct_cond);
             while (ct_done >= cfg.clock_freq && !ct_end)
@@ -235,47 +251,7 @@ void *scheduler_run(void *arg)
         
         if(!ct_end) {
             //printf("scheduler:  %u\n", global_tick);
-            if (pq.size > 0) {
-                uint8_t i = 0, j;
-                uint8_t found = 0;
-                while (!found && i < cfg.n_cpus)
-                {
-                    for (j = 0; j < cfg.threads_per_cpu; j++)
-                    {
-                        if (cfg.cpus[i].threads[j].t_args.pcb == NULL) 
-                        {
-                            found = 1;
-                            break;
-                        }
-                    }
-                    if (!found)
-                        i++;
-                }
-                
-                if (found)
-                {
-                    cfg.cpus[i].threads[j].t_args.pcb = pq.first;
-                    pq.first->state = RUNNING;
-                    pq.first = pq.first->behind;
-
-                    if (pq.size == 1) {
-                        pq.last  = NULL;
-                    }
-                    else {
-                        pq.first->next = NULL;
-                    }
-                    pq.size--;
-
-                    printf("PCB id: %u\n",       cfg.cpus[i].threads[j].t_args.pcb->id);
-                    printf("PCB life_time: %u\n", cfg.cpus[i].threads[j].t_args.pcb->life_time);
-                    printf("------------------------------------\n");
-
-                    free(cfg.cpus[i].threads[j].pcb);
-
-                    cfg.cpus[i].threads[j].pcb = NULL;
-                }
-            }
-
+            GT_size();
             tsd_done = 0;
             pthread_cond_signal(&tsd_cond2);
         }
@@ -410,10 +386,86 @@ void free_cpus ()
     free(cfg.cpus);
 }
 
-void process_run (void *args)
+void *process_run (void *args)
 {
+    ThreadArgs *thread = (ThreadArgs *) args;
+    PCB *pcb = thread->pcb;
+    pthread_mutex_lock(&threads_run_mutex);
     while (!ct_end)
     {
+        while (!threads_done)
+            pthread_cond_wait(&thread_run_cond, &threads_run_mutex);
+        
+        pcb->life_time -= 1;
 
+        pthread_mutex_lock(&thread_remaining_mutex);
+        remaining_threads++;
+        pthread_cond_signal(&thread_run_cond2);
+        pthread_mutex_unlock(&thread_remaining_mutex);
+
+        while (remaining_threads < cfg.threads_in_use)
+            pthread_cond_wait(&thread_run_cond, &threads_run_mutex);
+
+        if (pcb->life_time == 0)
+            break;
+    }
+    pthread_mutex_lock(&thread_in_use_mutex):
+    cfg.threads_in_use -= 1;
+    pthread_mutex_unlock(&thread_in_use_mutex):
+
+    printf("BUKATUTA:\n");
+    printf("PCB id: %u\n",       pcb->id);
+    printf("PCB life_time: %u\n", pcb->life_time);
+    printf("------------------------------------\n");
+
+    free(pcb);
+    pcb = NULL;
+
+    pthread_mutex_unlock(&threads_run_mutex);
+}
+
+void GT_size ()
+{
+    if (pq.size > 0) {
+        uint8_t i = 0, j;
+        uint8_t found = 0;
+        while (!found && i < cfg.n_cpus)
+        {
+            for (j = 0; j < cfg.threads_per_cpu; j++)
+            {
+                if (cfg.cpus[i].threads[j].t_args.pcb == NULL) 
+                {
+                    found = 1;
+                    break;
+                }
+            }
+            if (!found)
+                i++;
+        }
+        
+        if (found)
+        {
+            cfg.cpus[i].threads[j].t_args.pcb = pq.first;
+            pq.first->state = RUNNING;
+            pq.first = pq.first->behind;
+
+            if (pq.size == 1) {
+                pq.last  = NULL;
+            }
+            else {
+                pq.first->next = NULL;
+            }
+            pq.size--;
+
+            /*
+            printf("PCB id: %u\n",       cfg.cpus[i].threads[j].t_args.pcb->id);
+            printf("PCB life_time: %u\n", cfg.cpus[i].threads[j].t_args.pcb->life_time);
+            printf("------------------------------------\n");
+
+            free(cfg.cpus[i].threads[j].pcb);
+
+            cfg.cpus[i].threads[j].pcb = NULL;
+            */
+        }
     }
 }

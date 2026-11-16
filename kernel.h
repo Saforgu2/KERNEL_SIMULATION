@@ -20,11 +20,12 @@ extern uint32_t tsd_done;
 extern uint32_t threads_done;       // Jakiteko ea threads guztiek egin duten 
 extern uint32_t remaining_threads;  // Zenbat thread-ek bukatu duten
 
-
 extern pthread_mutex_t ct_mutex;
 extern pthread_mutex_t tg_mutex;
 extern pthread_mutex_t tsd_mutex;
 extern pthread_mutex_t threads_run_mutex;
+extern pthread_mutex_t thread_remainig_mutex;
+extern pthread_mutex_t thread_in_use_mutex;
 
 extern pthread_cond_t  ct_cond;
 extern pthread_cond_t  ct_cond2;
@@ -67,7 +68,7 @@ typedef struct HWC
 {
     CPU *cpus;
     uint8_t  n_cpus;
-    uint8_t threads_per_cpu, threads_in_use;
+    uint8_t  threads_per_cpu, threads_in_use;
     uint8_t  cores, hwthreads;
     uint32_t clock_freq;     /*Hz-etan*/
     uint32_t timer_freq;    /*  Tick arteko erloju-zikloak*/
@@ -120,6 +121,7 @@ void free_pq ();
 void free_cpus ();
 void cpus_alloc ();
 void print_cpus ();
-void process_run (void *args);
+void *process_run (void *args);
+void GT_size ();
 
 PCB *create_pcb ();
