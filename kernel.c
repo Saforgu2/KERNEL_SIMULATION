@@ -11,10 +11,15 @@ uint32_t ct_end;
 uint32_t ct_done;
 uint32_t tg_done;
 uint32_t tsd_done;
+uint32_t tick_gen;
+uint32_t remaining_threads;  // Zenbat thread-ek bukatu duten
 
 pthread_mutex_t ct_mutex;
 pthread_mutex_t tg_mutex;
 pthread_mutex_t tsd_mutex;
+pthread_mutex_t threads_run_mutex;
+pthread_mutex_t thread_remaining_mutex;
+pthread_mutex_t thread_in_use_mutex;
 
 pthread_cond_t  ct_cond;
 pthread_cond_t  ct_cond2;
@@ -22,6 +27,8 @@ pthread_cond_t  tg_cond;
 pthread_cond_t  tg_cond2;
 pthread_cond_t  tsd_cond;
 pthread_cond_t  tsd_cond2;
+pthread_cond_t  thread_run_cond;
+pthread_cond_t  thread_run_cond2;
 
 void PQ_init ()
 {
@@ -48,11 +55,12 @@ void global_init ()
     global_time = 0;
     global_tick = 0;
     
+    tick_gen = 0;
+
     ct_end = 0;
     ct_done = 0;
     tg_done = 0;
     tsd_done = 0;
-    threads_done = 0;
     remaining_threads = 0;
 
     pthread_mutex_init (&ct_mutex, NULL);
@@ -60,7 +68,7 @@ void global_init ()
     pthread_mutex_init (&tsd_mutex, NULL);
     pthread_mutex_init (&threads_run_mutex, NULL);
     pthread_mutex_init (&thread_in_use_mutex, NULL);
-    pthread_mutex_init (&thread_remainig_mutex, NULL);
+    pthread_mutex_init (&thread_remaining_mutex, NULL);
     
     pthread_cond_init  (&ct_cond, NULL);
     pthread_cond_init  (&ct_cond2, NULL);
@@ -106,6 +114,8 @@ void HWC_init ()
     scanf("%u", &n);
     cfg.process_freq = n;
 
+    cfg.threads_in_use = 0;
+
     cpus_alloc();
 
     printf("egitura hasieratuta\n");
@@ -118,7 +128,7 @@ void global_destroy(void)
     pthread_mutex_destroy(&tsd_mutex);
     pthread_mutex_destroy(&threads_run_mutex);
     pthread_mutex_destroy(&thread_in_use_mutex);
-    pthread_mutex_destroy(&thread_remainig_mutex);
+    pthread_mutex_destroy(&thread_remaining_mutex);
 
     pthread_cond_destroy(&ct_cond);
     pthread_cond_destroy(&ct_cond2);
@@ -128,7 +138,6 @@ void global_destroy(void)
     pthread_cond_destroy(&tsd_cond2);
     pthread_cond_destroy(&thread_run_cond);
     pthread_cond_destroy(&thread_run_cond2);
-    
 
     print_cpus();
 
@@ -150,7 +159,8 @@ void *clock_run (void *arg)
             //printf("clock\n");
 
             pthread_cond_signal(&tg_cond);
-            pthread_cond_signal(&tsd_cond);   
+            pthread_cond_signal(&tsd_cond);  
+            pthread_cond_broadcast(&thread_run_cond);
         }
         pthread_cond_broadcast(&ct_cond2);
     }
@@ -194,11 +204,11 @@ void *timer_run (void *arg) //numero de ciclos/ticks= timerfreq 5--> 1ciclo cada
 
         if (cfg.threads_in_use > 0) {
             pthread_mutex_lock(&threads_run_mutex);
-            threads_done = 1;
+            remaining_threads = 0;
+            tick_gen++;
             pthread_cond_broadcast(&thread_run_cond);
             while (remaining_threads < cfg.threads_in_use)
                 pthread_cond_wait(&thread_run_cond2, &threads_run_mutex);
-            threads_done = 0;
             pthread_cond_signal(&thread_run_cond);
             pthread_mutex_unlock(&threads_run_mutex);
         }
@@ -264,7 +274,7 @@ PCB *create_pcb ()
 {
     PCB *pcb = malloc(sizeof(PCB));
     uint8_t nice = rand() % sizeof(uint8_t);
-    uint32_t ran_dur = rand() % cfg.duration;
+    uint32_t ran_dur = (rand() % cfg.duration + 1)  / 2;
 
     pcb->nice      = nice;
     pcb->id        = global_id;
@@ -325,7 +335,7 @@ void cpus_alloc ()
         {
             cfg.cpus[i].threads[j].id            = j;
             cfg.cpus[i].threads[j].t_args        = malloc(sizeof(ThreadArgs));
-            cfg.cpus[i].threads[j].t_args.pcb    = NULL;
+            cfg.cpus[i].threads[j].t_args->pcb    = NULL;
         }
     }
 }
@@ -390,38 +400,49 @@ void *process_run (void *args)
 {
     ThreadArgs *thread = (ThreadArgs *) args;
     PCB *pcb = thread->pcb;
+    uint32_t my_gen = thread->gen;
+    //printf("Haria exekutatzen\n");
     pthread_mutex_lock(&threads_run_mutex);
     while (!ct_end)
     {
-        while (!threads_done)
+        //printf("Lehenengo whilea-era sartzen egin da\n");
+        while (my_gen == tick_gen && !ct_end)
+        {
             pthread_cond_wait(&thread_run_cond, &threads_run_mutex);
+            //printf("Lehenengo while-aren barruan\n");
+        }
+        
+        if (ct_end)
+            break;
         
         pcb->life_time -= 1;
+        my_gen = tick_gen;
 
         pthread_mutex_lock(&thread_remaining_mutex);
         remaining_threads++;
         pthread_cond_signal(&thread_run_cond2);
         pthread_mutex_unlock(&thread_remaining_mutex);
 
-        while (remaining_threads < cfg.threads_in_use)
-            pthread_cond_wait(&thread_run_cond, &threads_run_mutex);
-
         if (pcb->life_time == 0)
             break;
     }
-    pthread_mutex_lock(&thread_in_use_mutex):
+    pthread_mutex_lock(&thread_in_use_mutex);
     cfg.threads_in_use -= 1;
-    pthread_mutex_unlock(&thread_in_use_mutex):
+    pthread_mutex_unlock(&thread_in_use_mutex);
 
     printf("BUKATUTA:\n");
-    printf("PCB id: %u\n",       pcb->id);
+    printf("PCB id: %u\n",        pcb->id);
     printf("PCB life_time: %u\n", pcb->life_time);
     printf("------------------------------------\n");
 
+    /* Egoera aldatu (FINICHED) eta gehitu bukatuen listara */
+
     free(pcb);
-    pcb = NULL;
+    thread->pcb = NULL;
 
     pthread_mutex_unlock(&threads_run_mutex);
+
+    return NULL;
 }
 
 void GT_size ()
@@ -433,7 +454,7 @@ void GT_size ()
         {
             for (j = 0; j < cfg.threads_per_cpu; j++)
             {
-                if (cfg.cpus[i].threads[j].t_args.pcb == NULL) 
+                if (cfg.cpus[i].threads[j].t_args->pcb == NULL) 
                 {
                     found = 1;
                     break;
@@ -445,7 +466,7 @@ void GT_size ()
         
         if (found)
         {
-            cfg.cpus[i].threads[j].t_args.pcb = pq.first;
+            cfg.cpus[i].threads[j].t_args->pcb = pq.first;
             pq.first->state = RUNNING;
             pq.first = pq.first->behind;
 
@@ -456,6 +477,9 @@ void GT_size ()
                 pq.first->next = NULL;
             }
             pq.size--;
+            cfg.threads_in_use++;
+            cfg.cpus[i].threads[j].t_args->gen = tick_gen;
+            pthread_create(&cfg.cpus[i].threads[j].thread, NULL, process_run, cfg.cpus[i].threads[j].t_args);
 
             /*
             printf("PCB id: %u\n",       cfg.cpus[i].threads[j].t_args.pcb->id);

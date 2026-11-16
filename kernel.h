@@ -17,20 +17,22 @@ extern uint32_t ct_end;
 extern uint32_t ct_done;
 extern uint32_t tg_done;
 extern uint32_t tsd_done;
-extern uint32_t threads_done;       // Jakiteko ea threads guztiek egin duten 
+extern uint32_t tick_gen;
 extern uint32_t remaining_threads;  // Zenbat thread-ek bukatu duten
 
 extern pthread_mutex_t ct_mutex;
 extern pthread_mutex_t tg_mutex;
 extern pthread_mutex_t tsd_mutex;
 extern pthread_mutex_t threads_run_mutex;
-extern pthread_mutex_t thread_remainig_mutex;
+extern pthread_mutex_t thread_remaining_mutex;
 extern pthread_mutex_t thread_in_use_mutex;
 
 extern pthread_cond_t  ct_cond;
 extern pthread_cond_t  ct_cond2;
 extern pthread_cond_t  tg_cond;
 extern pthread_cond_t  tg_cond2;
+extern pthread_cond_t  tsd_cond;
+extern pthread_cond_t  tsd_cond2;
 extern pthread_cond_t  thread_run_cond;
 extern pthread_cond_t  thread_run_cond2;
 
@@ -47,6 +49,7 @@ typedef struct PCB
 
 typedef struct ThreadArgs
 {
+    uint32_t gen;
     PCB *pcb;
 } ThreadArgs;
 
@@ -54,7 +57,7 @@ typedef struct TCB
 {
     uint32_t id;
     pthread_t thread;
-    ThreadArgs t_args;
+    ThreadArgs *t_args;
 } TCB;
 
 typedef struct CPU
